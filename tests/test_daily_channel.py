@@ -145,11 +145,10 @@ async def test_each_music_mood_has_a_saved_caption_during_model_outage(native):
     )
 
 
+@pytest.mark.parametrize("native", [False], indirect=True)
 async def test_configured_caption_can_repeat_when_outage_choices_are_exhausted(
     native,
 ):
-    native.scheduler.terminate()
-    await native.scheduler.wait()
     native.services.model_status = 402
     track_id = await upload(native, "calm")
     caption = "این یکی برای چند دقیقه آروم‌تر بودن 🎧"

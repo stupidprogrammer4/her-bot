@@ -187,7 +187,7 @@ class Harness:
     clock: FixedClock
     worker: asyncio.subprocess.Process
     worker_log: Path
-    scheduler: asyncio.subprocess.Process
+    scheduler: asyncio.subprocess.Process | None
     bot: Bot
     backend: Backend
 
@@ -227,7 +227,9 @@ class Harness:
 
 @pytest_asyncio.fixture
 async def native(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
 ) -> AsyncIterator[Harness]:
     database = os.getenv("HER_TEST_DATABASE_URL")
     redis = os.getenv("HER_TEST_REDIS_URL")
@@ -381,19 +383,21 @@ async def native(
                     stdout=log,
                     stderr=log,
                 )
-                scheduler = await asyncio.create_subprocess_exec(
-                    sys.executable,
-                    "-m",
-                    "taskiq",
-                    "scheduler",
-                    "her_api.apps.scheduler:scheduler",
-                    "--log-level",
-                    "WARNING",
-                    env=env,
-                    cwd=ROOT,
-                    stdout=log,
-                    stderr=log,
-                )
+                scheduler = None
+                if getattr(request, "param", True):
+                    scheduler = await asyncio.create_subprocess_exec(
+                        sys.executable,
+                        "-m",
+                        "taskiq",
+                        "scheduler",
+                        "her_api.apps.scheduler:scheduler",
+                        "--log-level",
+                        "WARNING",
+                        env=env,
+                        cwd=ROOT,
+                        stdout=log,
+                        stderr=log,
+                    )
                 async with httpx.AsyncClient(
                     base_url=api_url,
                     headers={"Authorization": "Bearer " + key},
@@ -419,9 +423,19 @@ async def native(
                         )
                     finally:
                         worker.terminate()
-                        if scheduler.returncode is None:
+                        if (
+                            scheduler is not None
+                            and scheduler.returncode is None
+                        ):
                             scheduler.terminate()
-                        await asyncio.gather(worker.wait(), scheduler.wait())
+                        await asyncio.gather(
+                            worker.wait(),
+                            *(
+                                [scheduler.wait()]
+                                if scheduler is not None
+                                else []
+                            ),
+                        )
                         log.close()
                         server.should_exit = True
                         await api_task

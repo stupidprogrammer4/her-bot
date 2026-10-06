@@ -14,9 +14,8 @@ from tests.test_publishing import dispatch, seed_job
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
+@pytest.mark.parametrize("native", [False], indirect=True)
 async def test_delivery_does_not_generate_or_send_unprepared_text(native):
-    native.scheduler.terminate()
-    await native.scheduler.wait()
     job = await seed_job(native, text=None, topic="music")
     await dispatch(job)
     assert not native.services.model_requests
@@ -93,9 +92,8 @@ async def test_future_text_is_persisted_then_scheduler_sends_without_model(
     ) == [{"status": "sent", "text": caption}]
 
 
+@pytest.mark.parametrize("native", [False], indirect=True)
 async def test_concurrent_preparation_and_replay_keep_one_saved_text(native):
-    native.scheduler.terminate()
-    await native.scheduler.wait()
     future = datetime.now(UTC).replace(microsecond=0) + timedelta(hours=1)
     job = await seed_job(
         native, text=None, scheduled_at=future, next_attempt_at=future
@@ -120,9 +118,8 @@ async def test_concurrent_preparation_and_replay_keep_one_saved_text(native):
     )
 
 
+@pytest.mark.parametrize("native", [False], indirect=True)
 async def test_paused_automatic_slot_is_prepared_only_after_resume(native):
-    native.scheduler.terminate()
-    await native.scheduler.wait()
     future = datetime.now(UTC).replace(microsecond=0) + timedelta(hours=1)
     job = await seed_job(
         native,
