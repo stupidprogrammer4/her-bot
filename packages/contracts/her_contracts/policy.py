@@ -15,7 +15,6 @@ class WindowPolicy(BaseModel):
     grace_seconds: int = Field(default=300, ge=1, le=1800)
     cooldown_windows: int = Field(default=7, ge=0, le=90)
     bootstrap_min_seconds: int = Field(default=60, ge=1, le=600)
-    prepare_seconds: int = Field(default=60, ge=0, le=120)
 
     @model_validator(mode="after")
     def valid(self) -> Self:

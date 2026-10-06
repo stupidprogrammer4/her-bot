@@ -89,6 +89,13 @@ is supported. Restarts, pauses and later policy changes preserve an existing pla
 An archive shortage blocks music scheduling and warns the owner once; independent
 text scheduling continues.
 
+Generation and delivery use separate worker tasks. Eligible planned posts and
+music captions are generated ahead of their publication times, validated and
+stored in MySQL. The scheduler selects only prepared, due jobs for delivery;
+the sending worker never calls the language model. A stored text survives
+restarts and Telegram retries. Pausing automatic publication also pauses
+preparation of its remaining unprepared slots. Manual jobs remain independent.
+
 Audio uses the same bot's Telegram file reference and one captioned `sendAudio`.
 Successful delivery requires an actual Telegram message ID. Rate limits retry
 within bounded attempts and deadlines. Timeouts, ambiguous server errors and

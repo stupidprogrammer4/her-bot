@@ -98,10 +98,13 @@ class PublicationReader(MySQLReader):
             select(col(j.text))
             .where(
                 col(j.channel_id) == channel_id,
-                col(j.status) == "sent",
+                col(j.status).in_(["pending", "preparing", "sent"]),
                 col(j.text).is_not(None),
             )
-            .order_by(col(j.sent_at).desc())
+            .order_by(
+                func.coalesce(col(j.sent_at), col(j.created_at)).desc(),
+                col(j.id).desc(),
+            )
             .limit(limit)
         )
         return [text for text in result.scalars() if text]

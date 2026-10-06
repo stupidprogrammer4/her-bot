@@ -10,9 +10,13 @@ from her_api.modules.ops.inbox.interfaces import IInboxCommands
 from her_api.modules.ops.inbox.tasks.schedulers.process import ProcessUpdate
 from her_api.modules.publishing.deliveries.interfaces import (
     IPublicationCommands,
+    IPublicationPreparation,
 )
 from her_api.modules.publishing.deliveries.tasks.schedulers.deliver import (
     Deliver,
+)
+from her_api.modules.publishing.deliveries.tasks.schedulers.prepare import (
+    PreparePublication,
 )
 from her_api.modules.publishing.plans.interfaces import IPlanCommands
 
@@ -26,6 +30,7 @@ class RecoverWork(RedisScheduler):
         publications: IPublicationCommands,
         inbox: IInboxCommands,
         chat: IChatCommands,
+        preparation: IPublicationPreparation,
     ):
         self.plans, self.publications, self.inbox, self.chat = (
             plans,
@@ -33,15 +38,18 @@ class RecoverWork(RedisScheduler):
             inbox,
             chat,
         )
+        self.preparation = preparation
 
     async def run(self) -> None:
         try:
             await self.plans.prepare()
             job_ids = await self.publications.recover()
+            unprepared = await self.preparation.pending()
             updates = await self.inbox.recover()
             chats = await self.chat.recover()
             await asyncio.gather(
                 *(Deliver.enqueue(id) for id in job_ids),
+                *(PreparePublication.enqueue(id) for id in unprepared),
                 *(ProcessUpdate.enqueue(id) for id in updates),
                 *(Converse.enqueue(id) for id in chats),
             )

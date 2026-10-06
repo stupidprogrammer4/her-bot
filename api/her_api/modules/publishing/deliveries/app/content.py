@@ -109,6 +109,7 @@ class PublicationContent:
                 )
             )
             text = (reply.message.content or "").strip()
+            recent = await self.reader.recent_texts(job.channel_id)
             if self.valid(text, limit, recent):
                 return text
         except (ValueError, ModelUnavailable):

@@ -6,6 +6,9 @@ from her_api.modules.publishing.deliveries.app.commands import (
 from her_api.modules.publishing.deliveries.app.content import (
     PublicationContent,
 )
+from her_api.modules.publishing.deliveries.app.preparation import (
+    PublicationPreparation,
+)
 from her_api.modules.publishing.deliveries.app.queries import (
     PublicationQueries,
 )
@@ -21,11 +24,15 @@ from her_api.modules.publishing.deliveries.infra.telegram import (
 )
 from her_api.modules.publishing.deliveries.interfaces import (
     IPublicationCommands,
+    IPublicationPreparation,
     IPublicationQueries,
     ITelegramTransport,
 )
 from her_api.modules.publishing.deliveries.tasks.schedulers.deliver import (
     Deliver,
+)
+from her_api.modules.publishing.deliveries.tasks.schedulers.prepare import (
+    PreparePublication,
 )
 
 
@@ -39,3 +46,7 @@ class PublicationProvider(Provider):
     commands = provide(PublicationCommands, provides=IPublicationCommands)
     queries = provide(PublicationQueries, provides=IPublicationQueries)
     deliver = provide(Deliver)
+    preparation = provide(
+        PublicationPreparation, provides=IPublicationPreparation
+    )
+    prepare = provide(PreparePublication)

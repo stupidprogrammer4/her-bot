@@ -187,6 +187,7 @@ class Harness:
     clock: FixedClock
     worker: asyncio.subprocess.Process
     worker_log: Path
+    scheduler: asyncio.subprocess.Process
     bot: Bot
     backend: Backend
 
@@ -412,12 +413,14 @@ async def native(
                             clock,
                             worker,
                             worker_log,
+                            scheduler,
                             bot,
                             backend,
                         )
                     finally:
                         worker.terminate()
-                        scheduler.terminate()
+                        if scheduler.returncode is None:
+                            scheduler.terminate()
                         await asyncio.gather(worker.wait(), scheduler.wait())
                         log.close()
                         server.should_exit = True

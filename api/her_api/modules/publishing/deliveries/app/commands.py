@@ -7,9 +7,6 @@ from her_api.modules.content.channel.interfaces import IChannelCommands
 from her_api.modules.library.tracks.interfaces import ITrackService
 from her_api.modules.ops.settings.interfaces import ISettingsQueries
 from her_api.modules.persona.privacy.app.guard import IdentityGuard
-from her_api.modules.publishing.deliveries.app.content import (
-    PublicationContent,
-)
 from her_api.modules.publishing.deliveries.domain.dtos import JobChange
 from her_api.modules.publishing.deliveries.domain.models import (
     PublicationJobModel,
@@ -40,7 +37,6 @@ class PublicationCommands:
         gates: DeliveryGateRepository,
         settings: ISettingsQueries,
         tracks: ITrackService,
-        content: PublicationContent,
         telegram: ITelegramTransport,
         channel: IChannelCommands,
         guard: IdentityGuard,
@@ -54,11 +50,10 @@ class PublicationCommands:
             self.gates,
             self.settings,
             self.tracks,
-            self.content,
             self.telegram,
             self.channel,
             self.guard,
-        ) = jobs, gates, settings, tracks, content, telegram, channel, guard
+        ) = jobs, gates, settings, tracks, telegram, channel, guard
 
     async def reserve(self, data: ManualPublication) -> JobOut:
         settings = await self.settings.snapshot()
@@ -122,11 +117,8 @@ class PublicationCommands:
 
     async def deliver(self, job_id: int) -> None:
         now = self.clock.now()
-        settings = await self.settings.snapshot()
         async with transaction():
-            claimed = await self.jobs.claim_preparing(
-                job_id, now, settings.window.prepare_seconds
-            )
+            claimed = await self.jobs.claim_delivery(job_id, now)
         if not claimed:
             return
         job = await self.jobs.get(job_id)
@@ -152,11 +144,7 @@ class PublicationCommands:
                 )
             return
         try:
-            text = (
-                ""
-                if job.kind == "delete"
-                else await self.content.prepare(job, settings)
-            )
+            text = self.guard.require_safe(job.text or "")
         except (ValueError, RuntimeError, NotFoundException):
             async with transaction():
                 await self.jobs.change(
@@ -169,16 +157,6 @@ class PublicationCommands:
                 )
             return
         now = self.clock.now()
-        if now < as_utc(job.scheduled_at):
-            async with transaction():
-                await self.jobs.change(
-                    job_id,
-                    JobChange(
-                        status="pending", text=text, lease_expires_at=None
-                    ),
-                    expected="preparing",
-                )
-            return
         settings = await self.settings.snapshot()
         file_id = None
         source_bot_id = None
@@ -355,7 +333,6 @@ class PublicationCommands:
                     )
 
     async def recover(self) -> list[int]:
-        settings = await self.settings.snapshot()
         now = self.clock.now()
         async with transaction():
             await self.jobs.recover(now)
@@ -378,7 +355,7 @@ class PublicationCommands:
                     for item in missing
                 ]
             )
-        ids = await self.jobs.due_ids(now, settings.window.prepare_seconds)
+        ids = await self.jobs.due_ids(now)
         return ids
 
     async def purge(self) -> None:

@@ -148,49 +148,85 @@ class PublicationRepository(MySQLRepository[PublicationJobModel]):
             },
         )
 
-    async def due_ids(
-        self, now: datetime, prepare_seconds: int, limit: int = 30
-    ) -> list[int]:
+    async def due_ids(self, now: datetime, limit: int = 30) -> list[int]:
         j = self.table
         result = await self.uow.execute(
             select(col(j.id))
             .where(
                 col(j.status) == "pending",
-                (
-                    (
-                        col(j.text).is_(None)
-                        & (
-                            col(j.next_attempt_at)
-                            <= now + timedelta(seconds=prepare_seconds)
-                        )
-                    )
-                    | (col(j.next_attempt_at) <= now)
-                ),
+                col(j.text).is_not(None) | (col(j.kind) == "delete"),
+                col(j.scheduled_at) <= now,
+                col(j.next_attempt_at) <= now,
             )
             .order_by(col(j.next_attempt_at), col(j.id))
             .limit(limit)
         )
         return list(result.scalars())
 
-    async def claim_preparing(
-        self,
-        id: int,
-        now: datetime,
-        prepare_seconds: int,
+    async def preparation_ids(
+        self, now: datetime, include_automatic: bool, limit: int = 30
+    ) -> list[int]:
+        j = self.table
+        stmt = select(col(j.id)).where(
+            col(j.status) == "pending",
+            col(j.text).is_(None),
+            col(j.kind) != "delete",
+            col(j.deadline_at).is_(None) | (col(j.deadline_at) > now),
+        )
+        if not include_automatic:
+            stmt = stmt.where(col(j.automatic).is_(False))
+        result = await self.uow.execute(
+            stmt.order_by(col(j.scheduled_at), col(j.id)).limit(limit)
+        )
+        return list(result.scalars())
+
+    async def claim_generation(
+        self, id: int, now: datetime, include_automatic: bool
     ) -> bool:
+        j = self.table
+        stmt = update(j).where(
+            col(j.id) == id,
+            col(j.status) == "pending",
+            col(j.text).is_(None),
+            col(j.kind) != "delete",
+            col(j.deadline_at).is_(None) | (col(j.deadline_at) > now),
+        )
+        if not include_automatic:
+            stmt = stmt.where(col(j.automatic).is_(False))
+        result = await self.uow.execute(
+            stmt.values(
+                status="preparing",
+                preparing_started_at=now,
+                lease_expires_at=now + timedelta(seconds=90),
+            )
+        )
+        return cast(CursorResult, result).rowcount == 1
+
+    async def finish_generation(
+        self, id: int, started_at: datetime, change: JobChange
+    ) -> None:
+        await self.uow.execute(
+            update(self.table)
+            .where(
+                col(self.table.id) == id,
+                col(self.table.status) == "preparing",
+                col(self.table.preparing_started_at) == started_at,
+                col(self.table.text).is_(None),
+            )
+            .values(**change.model_dump(exclude_unset=True))
+            .execution_options(synchronize_session=False)
+        )
+
+    async def claim_delivery(self, id: int, now: datetime) -> bool:
         result = await self.uow.execute(
             update(self.table)
             .where(
                 col(self.table.id) == id,
                 col(self.table.status) == "pending",
-                (col(self.table.next_attempt_at) <= now)
-                | (
-                    col(self.table.text).is_(None)
-                    & (
-                        col(self.table.next_attempt_at)
-                        <= now + timedelta(seconds=prepare_seconds)
-                    )
-                ),
+                col(self.table.text).is_not(None)
+                | (col(self.table.kind) == "delete"),
+                col(self.table.scheduled_at) <= now,
+                col(self.table.next_attempt_at) <= now,
             )
             .values(
                 status="preparing",
