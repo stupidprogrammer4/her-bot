@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "her-telegram"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = ["her-contracts==0.1.0", "aiogram==3.31.0", "httpx==0.28.1", "aiohttp==3.14.3", "multidict==6.9.1", "python-dotenv==1.2.4"]
+
+[tool.setuptools.packages.find]
+include = ["her_bot*"]

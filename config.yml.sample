@@ -1,0 +1,43 @@
+app:
+  modules: [her_api.modules]
+  settings: her_api.config.settings.HerSettings
+fastapi:
+  title: Her
+  description: Private companion and channel publishing
+  version: 0.1.0
+run:
+  entrypoint: her_api.apps.api:app
+  mode: prod
+  host: 0.0.0.0
+  port: 8000
+  workers: 1
+db:
+  test_dsn: mysql+aiomysql://her:replace@mysql:3306/her_test
+  dsn: mysql+aiomysql://her:replace@mysql:3306/her
+  pool_size: 5
+  max_overflow: 5
+  pool_timeout: 10
+  pool_recycle: 1800
+logging:
+  level: WARNING
+  format: json
+  service: her-api
+storage:
+  path: /tmp/her
+  temp_dir: /tmp/her
+  max_file_size: 10485760
+  allowed_extensions: [json]
+security:
+  service_key: replace
+  identity_hashes: []
+ai:
+  api_key: ''
+  endpoint: https://openrouter.ai/api/v1/chat/completions
+telegram:
+  gateway_url: http://bots:8080
+tasks:
+  url: redis://redis:6379/0
+  queue_name: her:jobs
+  schedule_prefix: her:schedules
+  consumer_group: her-workers
+  result_prefix: her:results

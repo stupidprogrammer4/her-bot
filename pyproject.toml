@@ -1,0 +1,21 @@
+[tool.ruff]
+line-length = 79
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["her_api", "her_bot", "her_contracts"]
+
+[tool.pyright]
+include = ["api/her_api", "bots/her_bot", "packages/contracts/her_contracts"]
+extraPaths = ["api", "bots", "packages/contracts"]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+pythonpath = ["api", "bots", "packages/contracts"]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib --strict-markers"
+markers = ["integration: isolated native MySQL and Redis workflows", "unit: isolated policy tests", "api: native API tests"]
