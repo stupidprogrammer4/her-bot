@@ -1,0 +1,117 @@
+name: her
+
+x-api: &api
+  image: her-api:local
+  build:
+    context: .
+    dockerfile: api/Dockerfile
+  environment: &api-environment
+    HER_DATABASE_URL: mysql+aiomysql://her:${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}@mysql:3306/her
+    HER_REDIS_URL: redis://redis:6379/0
+    HER_SERVICE_KEY: ${HER_SERVICE_KEY:?Set HER_SERVICE_KEY}
+    HER_IDENTITY_HASHES: ${HER_IDENTITY_HASHES:?Set identity fingerprints}
+    OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY}
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp:size=32m,mode=1777]
+
+services:
+  mysql:
+    image: mysql:8.4@sha256:c36050afdca850f23cef85703f84c7531a5ae155a11b5ee1c60acb09937c4084
+    environment:
+      MYSQL_DATABASE: her
+      MYSQL_USER: her
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+    command: [--innodb-buffer-pool-size=128M, --max-connections=60]
+    volumes: [mysql-data:/var/lib/mysql]
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql -uher -e "SELECT 1" her']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 512m
+
+  redis:
+    image: redis:8-alpine@sha256:bd999b5cfee25fb24b8320a31fddbd69f462df44c8138c66e369582937beebc0
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 64mb, --maxmemory-policy, noeviction]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    mem_limit: 128m
+
+  initialize:
+    <<: *api
+    environment:
+      <<: *api-environment
+      HER_OWNER_TELEGRAM_ID: ${HER_OWNER_TELEGRAM_ID:?Set owner ID}
+      HER_CHANNEL_ID: ${HER_CHANNEL_ID:?Set channel ID}
+      HER_DISCUSSION_GROUP_ID: ${HER_DISCUSSION_GROUP_ID:-}
+      HER_OPENROUTER_MODEL: ${HER_OPENROUTER_MODEL:?Set bootstrap model}
+    command: [python, -m, her_api.apps.initialize]
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    mem_limit: 256m
+
+  api:
+    <<: *api
+    depends_on:
+      initialize: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=5)']
+      interval: 15s
+      timeout: 6s
+      retries: 10
+    restart: unless-stopped
+    mem_limit: 256m
+
+  bots:
+    image: her-bots:local
+    build: {context: ., dockerfile: bots/Dockerfile}
+    environment:
+      HER_BOT_TOKEN: ${HER_BOT_TOKEN:?Set HER_BOT_TOKEN}
+      HER_SERVICE_KEY: ${HER_SERVICE_KEY:?Set HER_SERVICE_KEY}
+      HER_BACKEND_URL: http://api:8000
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/health", timeout=5)']
+      interval: 15s
+      timeout: 6s
+      retries: 10
+    init: true
+    read_only: true
+    tmpfs: [/tmp:size=16m,mode=1777]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    restart: unless-stopped
+    mem_limit: 192m
+
+  worker:
+    <<: *api
+    command: [taskiq, worker, her_api.apps.scheduler:broker, --workers, '1', --max-async-tasks, '8', --log-level, WARNING]
+    depends_on:
+      bots: {condition: service_healthy}
+    restart: unless-stopped
+    mem_limit: 384m
+
+  scheduler:
+    <<: *api
+    command: [taskiq, scheduler, her_api.apps.scheduler:scheduler, --log-level, WARNING]
+    depends_on:
+      bots: {condition: service_healthy}
+      worker: {condition: service_started}
+    restart: unless-stopped
+    mem_limit: 192m
+
+volumes:
+  mysql-data:
+  redis-data:

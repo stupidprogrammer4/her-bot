@@ -1,0 +1,74 @@
+name: Verify Her
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: her-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4@sha256:c36050afdca850f23cef85703f84c7531a5ae155a11b5ee1c60acb09937c4084
+        env:
+          MYSQL_DATABASE: her_test_ci
+          MYSQL_USER: her_test
+          MYSQL_PASSWORD: test-only-password
+          MYSQL_ROOT_PASSWORD: test-only-root-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1 -ptest-only-root-password"
+          --health-interval=5s --health-timeout=3s --health-retries=30
+      redis:
+        image: redis:8-alpine@sha256:bd999b5cfee25fb24b8320a31fddbd69f462df44c8138c66e369582937beebc0
+        ports: ['6379:6379']
+        options: --health-cmd="redis-cli ping" --health-interval=5s --health-retries=20
+    env:
+      HER_TEST_DATABASE_URL: mysql+aiomysql://her_test:test-only-password@127.0.0.1:3306/her_test_ci
+      HER_TEST_REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.13'
+      - name: Install pinned dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r api/requirements-dev.lock -r bots/requirements.lock
+          .venv/bin/pip install --no-deps -e packages/contracts -e api -e bots
+          .venv/bin/pip check
+      - name: Check code, formatting and types
+        run: |
+          .venv/bin/ruff check api bots packages tests
+          .venv/bin/ruff format --check api bots packages tests
+          .venv/bin/pyright --pythonpath .venv/bin/python
+      - name: Check published contents
+        run: |
+          test -z "$(git ls-files docs tools private exports data AGENTS.md WORK.md .local-review '.env' '.env.*' ':!.env.example')"
+          test -z "$(git ls-files '*.md' ':!README.md')"
+          if git grep -n -P '[\x{0600}-\x{06ff}]' -- '*.md'; then
+            exit 1
+          fi
+      - name: Run native workflows
+        run: .venv/bin/python -m pytest tests -q
+      - name: Audit runtime Python dependencies
+        run: |
+          python -m venv /tmp/her-audit
+          /tmp/her-audit/bin/pip install pip-audit==2.10.1
+          grep '==' api/requirements.lock bots/requirements.lock | cut -d: -f2- | sort -u > /tmp/her-runtime.txt
+          /tmp/her-audit/bin/pip-audit --no-deps --disable-pip -r /tmp/her-runtime.txt
+      - name: Scan tracked sources for secrets
+        run: |
+          docker run --rm --network none -v "$PWD:/repo:ro" zricethezav/gitleaks:v8.24.2 git /repo --redact --no-banner
+      - name: Build production images
+        run: |
+          docker build -f api/Dockerfile -t her-api:test .
+          docker build -f bots/Dockerfile -t her-bots:test .
