@@ -7,7 +7,7 @@ from her_api.modules.ops.settings.interfaces import ISettingsService
 from her_api.modules.publishing.deliveries.tasks.schedulers.prepare import (
     PreparePublication,
 )
-from her_contracts.policy import AccessPolicy
+from her_contracts.policy import AccessPolicy, ModelPolicy
 from tests.conftest import CHANNEL, OWNER
 from tests.test_publishing import dispatch, seed_job
 
@@ -39,6 +39,15 @@ async def prepare(job_id: int) -> None:
 async def test_future_text_is_persisted_then_scheduler_sends_without_model(
     native,
 ):
+    async with native.scope() as scope:
+        settings = await scope.get(ISettingsService)
+        model = await settings.get("model")
+        assert isinstance(model.value, ModelPolicy)
+        await settings.write(
+            "model",
+            model.value.model_copy(update={"reasoning_effort": "none"}),
+            model.revision,
+        )
     future = datetime.now(UTC).replace(microsecond=0) + timedelta(hours=1)
     caption = "گربه‌ها فکر می‌کنن صاحب خونه‌ان؛ شاید هم درست می‌گن 🎀"
     native.services.model_replies = [{"role": "assistant", "content": caption}]
@@ -57,6 +66,7 @@ async def test_future_text_is_persisted_then_scheduler_sends_without_model(
         "FROM tbl_publication_jobs WHERE id=:id",
         {"id": job},
     )
+    assert native.services.model_requests[0]["reasoning"] == {"effort": "none"}
     assert stored[0]["status"] == "pending"
     assert stored[0]["text"] == caption
     assert stored[0]["scheduled_at"] == future.replace(

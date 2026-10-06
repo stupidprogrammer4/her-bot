@@ -35,6 +35,8 @@ class OpenRouterClient:
                 "require_parameters": True,
             },
         }
+        if policy.reasoning_effort is not None:
+            payload["reasoning"] = {"effort": policy.reasoning_effort}
         if tools:
             payload.update(tools=tools, parallel_tool_calls=False)
         try:
