@@ -82,9 +82,12 @@ Never expose this endpoint to the public Internet.
 
 ## Publishing and recovery
 
-The default operational evening is 18:00 until 02:00 in `Asia/Tehran`. Three
-distinct songs and a uniformly sampled number of text posts (one through five)
-receive persisted random timestamps across the available window. Text count zero
+New installations schedule daily text from 09:00 until 02:00 and music from
+18:00 until 02:00 in `Asia/Tehran`. The database window policy owns the music
+`start`, shared `end`, and optional earlier `text_start`; omitting `text_start`
+preserves the legacy shared window. Three distinct songs and a uniformly sampled
+number of text posts (one through five) receive persisted random timestamps
+across their respective windows. Text count zero
 is supported. Restarts, pauses and later policy changes preserve an existing plan.
 An archive shortage blocks music scheduling and warns the owner once; independent
 text scheduling continues.
@@ -97,6 +100,10 @@ restarts and Telegram retries. Pausing automatic publication also pauses
 preparation of its remaining unprepared slots. Manual jobs remain independent.
 
 Audio uses the same bot's Telegram file reference and one captioned `sendAudio`.
+Daily text uses brief conversational preferences and observations. Music captions
+use the track's recorded mood; editable per-mood fallback choices keep captions
+varied during model outages without inventing a mood for an unclassified track.
+Safe captions can repeat when the configured choices are exhausted.
 Successful delivery requires an actual Telegram message ID. Rate limits retry
 within bounded attempts and deadlines. Timeouts, ambiguous server errors and
 interrupted sends become `delivery_unknown`; they are not retried automatically.

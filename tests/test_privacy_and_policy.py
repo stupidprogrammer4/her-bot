@@ -1,5 +1,5 @@
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from random import Random
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -70,7 +70,9 @@ def test_operational_evening_crosses_midnight_and_excludes_two_am(
 ):
     sampler = WindowSampler(Random(42))
     now = datetime(2026, 10, 6, hour, minute, tzinfo=ZoneInfo("Asia/Tehran"))
-    evening, start, end, is_partial = sampler.evening(now, WindowPolicy())
+    evening, start, end, is_partial = sampler.operational_window(
+        now, WindowPolicy()
+    )
     assert evening.day == day
     assert start.astimezone(ZoneInfo("Asia/Tehran")).hour == 18
     assert end.astimezone(ZoneInfo("Asia/Tehran")).hour == 2
@@ -88,7 +90,37 @@ def test_uniform_seconds_are_distinct_and_have_no_required_spacing():
         start + timedelta(seconds=2),
     ]
     with pytest.raises(ValueError):
-        sampler.evening(start.replace(tzinfo=None), WindowPolicy())
+        sampler.operational_window(start.replace(tzinfo=None), WindowPolicy())
+
+
+@pytest.mark.parametrize(
+    "hour,day,partial",
+    [(8, 6, False), (9, 6, False), (10, 6, True), (1, 5, True), (2, 6, False)],
+)
+def test_daily_text_window_and_music_share_the_operational_date(
+    hour, day, partial
+):
+    sampler = WindowSampler(Random(42))
+    policy = WindowPolicy(text_start=time(9))
+    zone = ZoneInfo("Asia/Tehran")
+    now = datetime(2026, 10, 6, hour, tzinfo=zone)
+    operational_day, start, end, is_partial = sampler.operational_window(
+        now, policy
+    )
+    assert operational_day.day == day
+    assert start.astimezone(zone).hour == 9
+    assert end - start == timedelta(hours=17)
+    assert (
+        sampler.music_start(operational_day, policy).astimezone(zone).hour
+        == 18
+    )
+    assert is_partial is partial
+
+
+@pytest.mark.parametrize("opening", [time(1), time(2), time(19)])
+def test_text_opening_cannot_cross_into_another_operational_day(opening):
+    with pytest.raises(ValidationError):
+        WindowPolicy(text_start=opening)
 
 
 @pytest.mark.parametrize(

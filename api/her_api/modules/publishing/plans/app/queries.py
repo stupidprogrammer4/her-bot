@@ -28,7 +28,9 @@ class PlanQueries:
 
     async def current(self) -> tuple[PlanModel | None, list[JobOut]]:
         settings = await self.settings.snapshot()
-        day, _, _, _ = self.sampler.evening(self.clock.now(), settings.window)
+        day, _, _, _ = self.sampler.operational_window(
+            self.clock.now(), settings.window
+        )
         plan = await self.plans.for_evening(settings.access.channel_id, day)
         rows = await self.reader.jobs(plan.id) if plan else []
         return plan, [

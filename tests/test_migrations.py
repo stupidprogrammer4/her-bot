@@ -73,6 +73,15 @@ async def test_upgrade_preserves_policy_and_accepts_large_persona(
         async with engine.begin() as connection:
             await connection.execute(
                 text(
+                    "INSERT INTO tbl_plans (channel_id,evening_date,starts_at,"
+                    "ends_at,music_status,text_min_snapshot,text_max_snapshot,"
+                    "bootstrap_partial,warned_missing_tracks) VALUES "
+                    "(-10020001,'2026-10-06','2026-10-06 14:30:00',"
+                    "'2026-10-06 22:30:00','waiting_for_tracks',1,5,0,0)"
+                )
+            )
+            await connection.execute(
+                text(
                     "INSERT INTO tbl_settings (`key`,value,revision) "
                     "VALUES ('access',:value,7)"
                 ),
@@ -98,6 +107,24 @@ async def test_upgrade_preserves_policy_and_accepts_large_persona(
             )
         await asyncio.to_thread(command.upgrade, configuration, "head")
         async with engine.connect() as connection:
+            plan = (
+                (
+                    await connection.execute(
+                        text(
+                            "SELECT "
+                            "starts_at,text_starts_at,ends_at FROM tbl_plans"
+                        )
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            assert (
+                plan["starts_at"]
+                == plan["text_starts_at"]
+                == datetime(2026, 10, 6, 14, 30)
+            )
+            assert plan["ends_at"] == datetime(2026, 10, 6, 22, 30)
             row = (
                 (
                     await connection.execute(

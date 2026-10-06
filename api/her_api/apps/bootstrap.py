@@ -1,5 +1,6 @@
 import asyncio
 import os
+from datetime import time
 
 from dishka import make_async_container
 from dotenv import load_dotenv
@@ -30,7 +31,7 @@ async def bootstrap() -> None:
                     group_id=int(group) if group else None,
                 ),
             )
-            await service.bootstrap("window", WindowPolicy())
+            await service.bootstrap("window", WindowPolicy(text_start=time(9)))
             await service.bootstrap(
                 "model", ModelPolicy(model=os.environ["HER_OPENROUTER_MODEL"])
             )

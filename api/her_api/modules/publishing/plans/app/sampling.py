@@ -11,7 +11,7 @@ class WindowSampler:
     def __init__(self, rng: SystemRandom):
         self.rng = rng
 
-    def evening(
+    def operational_window(
         self, now: datetime, policy: WindowPolicy
     ) -> tuple[date, datetime, datetime, bool]:
         if now.tzinfo is None:
@@ -19,19 +19,29 @@ class WindowSampler:
         zone = ZoneInfo(policy.timezone)
         local = now.astimezone(zone)
         day = local.date()
-        crosses_midnight = policy.end < policy.start
+        opening = (
+            policy.text_start
+            if policy.text_start is not None
+            else policy.start
+        )
+        crosses_midnight = policy.end < opening
         if crosses_midnight and local.time().replace(tzinfo=None) < policy.end:
             day -= timedelta(days=1)
-        start = datetime.combine(day, policy.start, zone).astimezone(UTC)
+        start = datetime.combine(day, opening, zone).astimezone(UTC)
         end_day = day + timedelta(days=1) if crosses_midnight else day
         end = datetime.combine(end_day, policy.end, zone).astimezone(UTC)
         if now >= end:
             day += timedelta(days=1)
-            start = datetime.combine(day, policy.start, zone).astimezone(UTC)
+            start = datetime.combine(day, opening, zone).astimezone(UTC)
             end = datetime.combine(
                 day + timedelta(days=int(crosses_midnight)), policy.end, zone
             ).astimezone(UTC)
         return day, start, end, start < now < end
+
+    def music_start(self, day: date, policy: WindowPolicy) -> datetime:
+        return datetime.combine(
+            day, policy.start, ZoneInfo(policy.timezone)
+        ).astimezone(UTC)
 
     def times(
         self, start: datetime, end: datetime, count: int

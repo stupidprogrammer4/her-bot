@@ -1,5 +1,7 @@
 import re
 from difflib import SequenceMatcher
+from typing import cast
+from zoneinfo import ZoneInfo
 
 from her_api.modules.ai.generation.domain.errors import ModelUnavailable
 from her_api.modules.ai.generation.interfaces import IGenerationCommands
@@ -15,6 +17,7 @@ from her_api.modules.publishing.deliveries.infra.readers import (
 from her_api.shared.clock import Clock
 from her_api.shared.dates import as_utc
 from her_contracts.generation import GenerationRequest
+from her_contracts.media import Mood
 from her_contracts.policy import SettingsSnapshot
 
 
@@ -81,6 +84,9 @@ class PublicationContent:
         )
         data = {
             "topic": job.topic,
+            "publication_local_time": as_utc(job.scheduled_at)
+            .astimezone(ZoneInfo(settings.window.timezone))
+            .isoformat(),
             "recent_public_posts": [
                 p.model_dump(mode="json") for p in context.posts
             ],
@@ -88,8 +94,10 @@ class PublicationContent:
             ", no explanation or invented real events"
             ".",
         }
+        mood: Mood = "neutral"
         if job.track_id is not None:
             track = await self.tracks.get(job.track_id)
+            mood = cast(Mood, track.mood)
             data["track"] = {
                 "title": track.title,
                 "performer": track.performer,
@@ -115,6 +123,18 @@ class PublicationContent:
         except (ValueError, ModelUnavailable):
             pass
         if mode == "channel_caption":
+            choices = settings.persona.music_fallbacks.get(mood, [])
+            safe = [
+                text for text in choices if self.valid(text, limit, recent)
+            ]
+            if not safe:
+                safe = [
+                    text for text in choices if self.valid(text, limit, [])
+                ]
+            if safe:
+                return safe[job.id % len(safe)]
+            if choices:
+                raise ValueError("No safe music caption available")
             return self.guard.require_safe(settings.persona.music_fallback)
         if mode == "greeting":
             return self.guard.require_safe(settings.persona.greeting_fallback)

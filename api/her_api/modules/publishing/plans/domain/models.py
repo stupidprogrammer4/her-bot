@@ -15,6 +15,9 @@ class PlanModel(PersistenceEntity):
     channel_id: int = BigIntField()
     evening_date: date = Field()
     starts_at: datetime = TimestampField()
+    text_starts_at: datetime | None = TimestampField(
+        nullable=True, default=None
+    )
     ends_at: datetime = TimestampField()
     music_status: str = CharField(24, default="waiting_for_tracks")
     text_count: int | None = IntField(nullable=True, default=None)

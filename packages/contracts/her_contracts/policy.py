@@ -4,11 +4,14 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, model_validator
 
+from her_contracts.media import Mood
+
 
 class WindowPolicy(BaseModel):
     timezone: str = "Asia/Tehran"
     start: time = time(18)
     end: time = time(2)
+    text_start: time | None = None
     tracks: int = Field(default=3, ge=1, le=10)
     text_min: int = Field(default=1, ge=0, le=10)
     text_max: int = Field(default=5, ge=0, le=10)
@@ -21,6 +24,12 @@ class WindowPolicy(BaseModel):
         ZoneInfo(self.timezone)
         if self.start == self.end or self.text_min > self.text_max:
             raise ValueError("Invalid window or text range")
+        if self.text_start is not None and (
+            self.text_start > self.start
+            or self.text_start == self.end
+            or (self.end < self.start and self.text_start <= self.end)
+        ):
+            raise ValueError("Text must start within the same operational day")
         return self
 
 
@@ -65,6 +74,7 @@ class PersonaPolicy(BaseModel):
     topics: list[str] = Field(min_length=1, max_length=30)
     fallbacks: dict[str, list[str]] = Field(default_factory=dict)
     music_fallback: str = "اینم برای امشب 🎧"
+    music_fallbacks: dict[Mood, list[str]] = Field(default_factory=dict)
     greeting_fallback: str = "سلام بچه‌هاا :))) شمع زیبام 🎀🍓"
     chat_fallback: str = "الان جوابم گیر کرده، یه کم بعد دوباره بگو"
     owner_address: str = ""

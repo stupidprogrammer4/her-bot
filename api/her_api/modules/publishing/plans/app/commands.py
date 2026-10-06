@@ -42,37 +42,40 @@ class PlanCommands:
         settings = await self.settings.snapshot()
         now = self.clock.now()
         policy, access = settings.window, settings.access
-        day, start, end, partial = self.sampler.evening(now, policy)
+        day, start, end, partial = self.sampler.operational_window(now, policy)
         plan = await self.plans.for_evening(access.channel_id, day)
         if (
             plan is None
             and partial
             and (end - now).total_seconds() < policy.bootstrap_min_seconds
         ):
-            day, start, end, partial = self.sampler.evening(end, policy)
+            day, start, end, partial = self.sampler.operational_window(
+                end, policy
+            )
         async with transaction():
             if plan is None:
                 plan = await self.plans.ensure(
                     PlanModel(
                         channel_id=access.channel_id,
                         evening_date=day,
-                        starts_at=start,
+                        starts_at=self.sampler.music_start(day, policy),
+                        text_starts_at=start,
                         ends_at=end,
                         text_min_snapshot=policy.text_min,
                         text_max_snapshot=policy.text_max,
                         bootstrap_partial=partial,
                     )
                 )
-            available_start = (
-                max(
-                    now.replace(microsecond=0) + timedelta(seconds=1),
-                    as_utc(plan.starts_at),
-                )
-                if partial
-                else as_utc(plan.starts_at)
+            text_start = max(
+                now.replace(microsecond=0) + timedelta(seconds=1),
+                as_utc(plan.text_starts_at or plan.starts_at),
+            )
+            music_start = max(
+                now.replace(microsecond=0) + timedelta(seconds=1),
+                as_utc(plan.starts_at),
             )
             end = as_utc(plan.ends_at)
-            if available_start >= end:
+            if text_start >= end:
                 return plan.model_copy()
             previous = await self.reader.previous_topics(
                 access.channel_id, day
@@ -84,7 +87,7 @@ class PlanCommands:
             if plan.text_count is None and await self.plans.claim_text(
                 plan.id, count, now
             ):
-                times = self.sampler.times(available_start, end, count)
+                times = self.sampler.times(text_start, end, count)
                 topics = self.sampler.topics(
                     settings.persona.topics, count, previous
                 )
@@ -115,9 +118,7 @@ class PlanCommands:
                 if len(
                     chosen
                 ) == policy.tracks and await self.plans.claim_music(plan.id):
-                    times = self.sampler.times(
-                        available_start, end, policy.tracks
-                    )
+                    times = self.sampler.times(music_start, end, policy.tracks)
                     await self.jobs.create_many(
                         [
                             self._slot(

@@ -23,7 +23,7 @@ from her_api.modules.publishing.plans.interfaces import (
     IPlanCommands,
 )
 from her_contracts.media import AudioUpload
-from her_contracts.policy import WindowPolicy
+from her_contracts.policy import PersonaPolicy, WindowPolicy
 from tests.conftest import BOT_ID, CHANNEL, GROUP, OWNER
 from tests.messages import message
 
@@ -147,6 +147,15 @@ async def test_owner_group_greeting_works_with_member_chat_disabled(native):
 async def test_archive_refreshes_file_id_and_preview_uses_model_fallback(
     native,
 ):
+    async with native.scope() as scope:
+        settings = await scope.get(ISettingsService)
+        persona = await settings.get("persona")
+        assert isinstance(persona.value, PersonaPolicy)
+        await settings.write(
+            "persona",
+            persona.value.model_copy(update={"music_fallbacks": {}}),
+            persona.revision,
+        )
     track = await upload(native, "a")
     async with native.scope() as scope:
         service = await scope.get(ITrackService)
