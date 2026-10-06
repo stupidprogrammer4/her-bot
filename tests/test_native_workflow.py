@@ -8,6 +8,14 @@ from tests.messages import message
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+async def test_health_checks_native_mysql_and_redis(native):
+    response = await native.http.get("/health")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"status": "ok"}
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
 async def test_start_travels_through_native_worker_and_telegram(native):
     result = await native.post(message(100, "/start"))
     assert result["accepted"] and not result["replay"]
