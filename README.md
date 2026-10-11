@@ -55,7 +55,7 @@ maintained. Health checks verify API database/Redis access and bot readiness.
 | `/disable ID`, `/enable ID` | Control future use of an archived song |
 | `/preview ID` | Private song preview |
 | `/draft TOPIC` | Generate a public draft without publishing |
-| `/publish TEXT`, `/play ID [CAPTION]` | Explicit channel publication |
+| `/publish TEXT`, `/play ID` | Explicit channel publication |
 | `/pause`, `/resume` | Persistently pause/resume automatic publishing |
 | `/text_range MIN MAX` | Set the next evening's random text count range |
 | `/group_on`, `/group_off` | Enable/disable addressed member conversations |
@@ -85,25 +85,26 @@ Never expose this endpoint to the public Internet.
 New installations schedule daily text from 09:00 until 02:00 and music from
 18:00 until 02:00 in `Asia/Tehran`. The database window policy owns the music
 `start`, shared `end`, and optional earlier `text_start`; omitting `text_start`
-preserves the legacy shared window. Three distinct songs and a uniformly sampled
-number of text posts (one through five) receive persisted random timestamps
-across their respective windows. Text count zero
-is supported. Restarts, pauses and later policy changes preserve an existing plan.
-An archive shortage blocks music scheduling and warns the owner once; independent
-text scheduling continues.
+preserves the legacy shared window. Up to the configured number of fresh songs
+and a uniformly sampled number of text posts (one through five) receive persisted
+random timestamps across their respective windows. One or two fresh songs are
+enough; an empty fresh archive creates no music posts or shortage notices. Text
+count zero is supported. Restarts, pauses and later policy changes preserve an
+existing plan.
 
-Generation and delivery use separate worker tasks. Eligible planned posts and
-music captions are generated ahead of their publication times, validated and
-stored in MySQL. The scheduler selects only prepared, due jobs for delivery;
+Generation and delivery use separate worker tasks. Eligible planned text posts
+are generated ahead of their publication times, validated and stored in MySQL.
+Music preparation stores the persona's identity emoji without calling a model. The scheduler selects only prepared, due jobs for delivery;
 the sending worker never calls the language model. A stored text survives
 restarts and Telegram retries. Pausing automatic publication also pauses
 preparation of its remaining unprepared slots. Manual jobs remain independent.
 
 Audio uses the same bot's Telegram file reference and one captioned `sendAudio`.
 Daily text uses brief conversational preferences and observations. Music captions
-use the track's recorded mood; editable per-mood fallback choices keep captions
-varied during model outages without inventing a mood for an unclassified track.
-Safe captions can repeat when the configured choices are exhausted.
+contain only the single `persona.music_emoji` saved in the database (a candle by
+default). Each archived track is published once per destination; previous sent,
+sending or uncertain deliveries exclude it from automatic selection. The sending
+worker rechecks that history under the destination gate, including legacy jobs.
 Successful delivery requires an actual Telegram message ID. Rate limits retry
 within bounded attempts and deadlines. Timeouts, ambiguous server errors and
 interrupted sends become `delivery_unknown`; they are not retried automatically.
