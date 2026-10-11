@@ -29,6 +29,7 @@ class PublicationJobModel(PersistenceEntity):
     update_id: int | None = BigIntField(nullable=True, default=None)
     write_slot: int | None = IntField(nullable=True, default=None)
     topic: str | None = CharField(120, nullable=True, default=None)
+    occasion_json: str | None = TextField(nullable=True, default=None)
     text: str | None = TextField(nullable=True, default=None)
     scheduled_at: datetime = TimestampField()
     deadline_at: datetime | None = TimestampField(nullable=True, default=None)

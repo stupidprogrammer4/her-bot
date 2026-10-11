@@ -67,7 +67,7 @@ class PublicationCommands:
         target = targets[data.destination]
         if target is None:
             raise ValueError("Destination not configured")
-        if data.kind == "reply" or (
+        if data.kind in {"reply", "occasion"} or (
             data.kind == "preview" and data.destination != "owner"
         ):
             raise ValueError("Invalid manual publication")

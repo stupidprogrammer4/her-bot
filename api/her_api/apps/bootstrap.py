@@ -8,9 +8,15 @@ from papilio.core.config import get_settings
 
 from her_api.config.providers import task_providers
 from her_api.config.settings import HerSettings
+from her_api.modules.content.occasions.interfaces import IOccasionService
 from her_api.modules.ops.settings.interfaces import ISettingsService
 from her_api.modules.persona.privacy.app.defaults import initial_persona
-from her_contracts.policy import AccessPolicy, ModelPolicy, WindowPolicy
+from her_contracts.policy import (
+    AccessPolicy,
+    ModelPolicy,
+    OccasionPolicy,
+    WindowPolicy,
+)
 
 
 async def bootstrap() -> None:
@@ -36,6 +42,9 @@ async def bootstrap() -> None:
                 "model", ModelPolicy(model=os.environ["HER_OPENROUTER_MODEL"])
             )
             await service.bootstrap("persona", initial_persona())
+            await service.bootstrap("occasions", OccasionPolicy())
+            occasions = await scope.get(IOccasionService)
+            await occasions.seed()
     finally:
         await container.close()
 

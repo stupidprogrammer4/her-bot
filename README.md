@@ -169,3 +169,20 @@ deployment and verification code.
 ## License
 
 MIT; see [LICENSE](LICENSE).
+
+### Occasion posts
+
+Her prepares one separate daily post for selected occasions using the existing
+Papilio scheduler, queue and publication ledger. The `occasions` setting stores
+editable topic tags, local publication time, catch-up cutoff and voice prompt in
+MySQL. Defaults include girls, women, friendship, relationships and motherhood.
+Days without a relevant occasion create no extra post. Civil-day deadlines,
+atomic plan claims and unique publication slots prevent stale or repeated posts.
+Music remains independent: each archived track is sent once per channel with
+only the configured identity emoji.
+
+Calendar definitions are editable through authenticated, paginated
+`/internal/occasions` endpoints. A pinned shared date-calculation package covers
+Gregorian, Persian and verified Iranian lunar dates, with UN, UNESCO, WHO and
+clearly identified informal source records. Iranian lunar coverage ends on
+March 20, 2027; unknown future lunar dates are reported rather than invented.

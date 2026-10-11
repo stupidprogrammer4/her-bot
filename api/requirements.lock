@@ -63,3 +63,7 @@ uvloop==0.22.1
 watchfiles==1.1.1
 websockets==17.1
 yarl==1.25.1
+
+persiantools==5.5.1
+
+amupouya-calendar @ https://codeload.github.com/stupidprogrammer4/rick-and-morty/tar.gz/68988ea0f6caf8dd5a8a2bd3368f7b1a2d3520a8#subdirectory=packages/calendar

@@ -13,6 +13,7 @@ from her_api.modules.persona.privacy.app.guard import IdentityGuard
 from her_contracts.policy import (
     AccessPolicy,
     ModelPolicy,
+    OccasionPolicy,
     PersonaPolicy,
     WindowPolicy,
 )
@@ -22,6 +23,7 @@ VALUE_TYPES = {
     "model": ModelPolicy,
     "persona": PersonaPolicy,
     "window": WindowPolicy,
+    "occasions": OccasionPolicy,
 }
 
 

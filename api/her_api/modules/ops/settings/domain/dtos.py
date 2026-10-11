@@ -5,12 +5,15 @@ from pydantic import BaseModel, Field
 from her_contracts.policy import (
     AccessPolicy,
     ModelPolicy,
+    OccasionPolicy,
     PersonaPolicy,
     WindowPolicy,
 )
 
-SettingKey = Literal["access", "window", "model", "persona"]
-SettingValue = AccessPolicy | WindowPolicy | ModelPolicy | PersonaPolicy
+SettingKey = Literal["access", "window", "model", "persona", "occasions"]
+SettingValue = (
+    AccessPolicy | WindowPolicy | ModelPolicy | PersonaPolicy | OccasionPolicy
+)
 
 
 class SettingChange(BaseModel):

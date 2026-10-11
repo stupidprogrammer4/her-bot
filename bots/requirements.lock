@@ -24,3 +24,7 @@ python-dotenv==1.2.4
 typing-extensions==4.16.0
 typing-inspection==0.4.4
 yarl==1.25.1
+
+persiantools==5.5.1
+
+amupouya-calendar @ https://codeload.github.com/stupidprogrammer4/rick-and-morty/tar.gz/68988ea0f6caf8dd5a8a2bd3368f7b1a2d3520a8#subdirectory=packages/calendar

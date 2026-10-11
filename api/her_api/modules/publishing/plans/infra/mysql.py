@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Any, cast
 
 from papilio.infra.db.repositories.backends.mysql import MySQLRepository
@@ -16,9 +16,9 @@ class PlanRepository(MySQLRepository[PlanModel]):
     table = PlanTable
 
     async def for_evening(
-        self, channel_id: int, day: date
+        self, channel_id: int, day: date, *, current: bool = False
     ) -> PlanModel | None:
-        result = await self.uow.execute(
+        statement = (
             select(self.table)
             .where(
                 col(self.table.channel_id) == channel_id,
@@ -26,6 +26,10 @@ class PlanRepository(MySQLRepository[PlanModel]):
             )
             .execution_options(populate_existing=True)
         )
+        if current:
+            # Upsert already owns this row; read past an older MySQL snapshot.
+            statement = statement.with_for_update()
+        result = await self.uow.execute(statement)
         return result.scalar_one_or_none()
 
     async def change(self, id: int, data: PlanChange) -> None:
@@ -43,7 +47,9 @@ class PlanRepository(MySQLRepository[PlanModel]):
                 cast(ColumnClause[Any], col(self.table.id)): col(self.table.id)
             },
         )
-        row = await self.for_evening(data.channel_id, data.evening_date)
+        row = await self.for_evening(
+            data.channel_id, data.evening_date, current=True
+        )
         if row is None:
             raise ValueError("Plan not found after creation")
         return row
@@ -55,6 +61,17 @@ class PlanRepository(MySQLRepository[PlanModel]):
                 col(self.table.id) == id, col(self.table.text_count).is_(None)
             )
             .values(text_count=count, text_created_at=now)
+        )
+        return cast(CursorResult, result).rowcount == 1
+
+    async def claim_occasion(self, id: int, now: datetime) -> bool:
+        result = await self.uow.execute(
+            update(self.table)
+            .where(
+                col(self.table.id) == id,
+                col(self.table.occasion_created_at).is_(None),
+            )
+            .values(occasion_created_at=now)
         )
         return cast(CursorResult, result).rowcount == 1
 

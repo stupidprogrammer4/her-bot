@@ -26,5 +26,8 @@ class PlanModel(PersistenceEntity):
     text_created_at: datetime | None = TimestampField(
         nullable=True, default=None
     )
+    occasion_created_at: datetime | None = TimestampField(
+        nullable=True, default=None
+    )
     bootstrap_partial: bool = BoolField(default=False)
     warned_missing_tracks: bool = BoolField(default=False)

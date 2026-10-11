@@ -1,8 +1,10 @@
 import unicodedata
 from datetime import time
+from datetime import time as ClockTime
 from typing import Literal, Self
 from zoneinfo import ZoneInfo
 
+from amupouya_calendar.models import CalendarPolicy
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from her_contracts.media import Mood
@@ -102,14 +104,73 @@ class PersonaPolicy(BaseModel):
         return value
 
 
+class OccasionPolicy(CalendarPolicy):
+    enabled: bool = True
+    tags: list[str] = Field(
+        default_factory=lambda: [
+            "girls",
+            "women",
+            "friendship",
+            "relationship",
+            "motherhood",
+        ],
+        max_length=50,
+    )
+    time: ClockTime = ClockTime(10)
+    catchup_until: ClockTime = ClockTime(23)
+    prompt: str = Field(
+        default=(
+            "به مناسبت\u200cهای امروز واکنش شخصی و کوتاه نشان بده، مثل "
+            "دیلی خودت؛ صمیمی، دخترانه و طبیعی، نه گزارش رسمی و نه "
+            "نقش ریک. اسم هر مناسبت را دقیقاً یک\u200cبار در متن بیاور. "
+            "مناسبت غیررسمی را رسمی یا جهانی جا نزن. برای روزهای "
+            "خشونت و تبعیض همدلانه بنویس؛ شوخی و تبریک نامناسب نکن. "
+            "دربارهٔ زندگی واقعی یا خاطرهٔ شخصی چیزی نساز. یک تا سه "
+            "ایموجی مرتبط کافی است. فقط متن نهایی فارسی."
+        ),
+        min_length=30,
+        max_length=4000,
+    )
+    fallback_template: str = Field(
+        default="امروز {titles}ه. خواستم این گوشه از دیلیم یادش بمونه 🕯️🤍",
+        min_length=10,
+        max_length=1500,
+    )
+
+    @model_validator(mode="after")
+    def valid_schedule(self) -> Self:
+        if (
+            self.time.tzinfo is not None
+            or self.catchup_until.tzinfo is not None
+            or self.time >= self.catchup_until
+        ):
+            raise ValueError("Occasion times must be ordered local times")
+        if (
+            "{titles}" not in self.fallback_template
+            or self.fallback_template.count("{") != 1
+            or self.fallback_template.count("}") != 1
+        ):
+            raise ValueError(
+                "Occasion fallback requires only the titles placeholder"
+            )
+        return self
+
+
 class SettingsSnapshot(BaseModel):
     access_revision: int = Field(ge=1)
     access: AccessPolicy
     window: WindowPolicy
     model: ModelPolicy
     persona: PersonaPolicy
+    occasions: OccasionPolicy
 
 
 class SettingWrite(BaseModel):
     revision: int = Field(ge=1)
-    value: AccessPolicy | WindowPolicy | ModelPolicy | PersonaPolicy
+    value: (
+        AccessPolicy
+        | WindowPolicy
+        | ModelPolicy
+        | PersonaPolicy
+        | OccasionPolicy
+    )

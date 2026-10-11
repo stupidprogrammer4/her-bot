@@ -45,6 +45,7 @@ from her_api.config.errors import (
 )
 from her_api.config.providers import infrastructure_providers, task_providers
 from her_api.config.settings import HerSettings
+from her_api.modules.content.occasions.interfaces import IOccasionService
 from her_api.modules.ops.inbox.tasks.schedulers.process import ProcessUpdate
 from her_api.modules.ops.settings.interfaces import ISettingsService
 from her_api.modules.persona.privacy.app.defaults import initial_persona
@@ -53,7 +54,12 @@ from her_bot.app.delivery import Delivery
 from her_bot.app.gateway import Gateway
 from her_bot.config.settings import BotSettings
 from her_bot.infra.backend import Backend
-from her_contracts.policy import AccessPolicy, ModelPolicy, WindowPolicy
+from her_contracts.policy import (
+    AccessPolicy,
+    ModelPolicy,
+    OccasionPolicy,
+    WindowPolicy,
+)
 from her_contracts.telegram import IncomingMessage
 
 OWNER = 10001
@@ -347,6 +353,17 @@ async def native(
                         "window", WindowPolicy(text_min=0, text_max=0)
                     )
                     await service.bootstrap("persona", initial_persona())
+                    await service.bootstrap(
+                        "occasions", OccasionPolicy(enabled=False)
+                    )
+                    occasion_setting = await service.get("occasions")
+                    await service.write(
+                        "occasions",
+                        OccasionPolicy(enabled=False),
+                        occasion_setting.revision,
+                    )
+                    occasions = await scope.get(IOccasionService)
+                    await occasions.seed()
                 server = uvicorn.Server(
                     uvicorn.Config(
                         app,

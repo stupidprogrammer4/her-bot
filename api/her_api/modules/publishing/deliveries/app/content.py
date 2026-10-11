@@ -2,6 +2,8 @@ import re
 from difflib import SequenceMatcher
 from zoneinfo import ZoneInfo
 
+from amupouya_calendar.models import OccasionDay
+
 from her_api.modules.ai.generation.domain.errors import ModelUnavailable
 from her_api.modules.ai.generation.interfaces import IGenerationCommands
 from her_api.modules.content.channel.interfaces import IChannelQueries
@@ -79,6 +81,28 @@ class PublicationContent:
             ", no explanation or invented real events"
             ".",
         }
+        occasion = None
+        if job.kind == "occasion":
+            if job.occasion_json is None:
+                raise ValueError("Occasion context missing")
+            occasion = OccasionDay.model_validate_json(job.occasion_json)
+            local_day = (
+                as_utc(job.scheduled_at)
+                .astimezone(ZoneInfo(settings.window.timezone))
+                .date()
+            )
+            if (
+                occasion.date != local_day
+                or not occasion.events
+                or self.clock.now()
+                .astimezone(ZoneInfo(settings.window.timezone))
+                .date()
+                != local_day
+            ):
+                raise ValueError("Occasion date no longer current")
+            data["occasions"] = occasion.model_dump(mode="json")
+            data["instruction"] = settings.occasions.prompt
+            limit = 1500
         remaining = (
             (as_utc(job.deadline_at) - self.clock.now()).total_seconds()
             if job.deadline_at
@@ -94,10 +118,21 @@ class PublicationContent:
             )
             text = (reply.message.content or "").strip()
             recent = await self.reader.recent_texts(job.channel_id)
-            if self.valid(text, limit, recent):
+            if self.valid(text, limit, recent) and (
+                occasion is None
+                or all(
+                    text.count(event.title) == 1 for event in occasion.events
+                )
+            ):
                 return text
         except (ValueError, ModelUnavailable):
             pass
+        if occasion is not None:
+            titles = "، ".join(event.title for event in occasion.events)
+            text = settings.occasions.fallback_template.format(titles=titles)
+            if self.valid(text, limit, recent):
+                return self.guard.require_safe(text)
+            raise ValueError("No safe occasion text available")
         if mode == "greeting":
             return self.guard.require_safe(settings.persona.greeting_fallback)
         choices = settings.persona.fallbacks.get(job.topic or "", [])

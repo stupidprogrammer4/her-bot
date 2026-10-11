@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from papilio.infra.db.transaction import transaction
 
+from her_api.modules.content.occasions.interfaces import IOccasionQueries
 from her_api.modules.ops.settings.interfaces import ISettingsQueries
 from her_api.modules.publishing.deliveries.domain.dtos import TrackReplacement
 from her_api.modules.publishing.deliveries.domain.models import (
@@ -30,8 +32,10 @@ class PlanCommands:
         settings: ISettingsQueries,
         sampler: WindowSampler,
         clock: Clock,
+        calendar: IOccasionQueries,
     ):
         self.clock = clock
+        self.calendar = calendar
         self.plans = plans
         self.jobs = jobs
         self.reader = reader
@@ -52,6 +56,35 @@ class PlanCommands:
             day, start, end, partial = self.sampler.operational_window(
                 end, policy
             )
+        occasion = None
+        occasion_stamp = None
+        occasion_end = None
+        zone = ZoneInfo(policy.timezone)
+        local = now.astimezone(zone)
+        occasion_policy = settings.occasions
+        if (
+            occasion_policy.enabled
+            and local.date() == day
+            and (plan is None or plan.occasion_created_at is None)
+        ):
+            occasion_end = min(
+                datetime.combine(day, occasion_policy.catchup_until, zone),
+                as_utc(plan.ends_at) if plan is not None else end,
+            )
+            occasion_start = (
+                as_utc(plan.text_starts_at or plan.starts_at)
+                if plan is not None
+                else start
+            )
+            occasion_stamp = max(
+                now + timedelta(seconds=1),
+                datetime.combine(day, occasion_policy.time, zone),
+                occasion_start,
+            )
+            if occasion_stamp < occasion_end:
+                occasion = await self.calendar.day(
+                    day, occasion_policy, policy.timezone
+                )
         async with transaction():
             if plan is None:
                 plan = await self.plans.ensure(
@@ -77,6 +110,25 @@ class PlanCommands:
             end = as_utc(plan.ends_at)
             if text_start >= end:
                 return plan.model_copy()
+            if (
+                occasion is not None
+                and occasion.events
+                and occasion_stamp is not None
+                and occasion_end is not None
+                and await self.plans.claim_occasion(plan.id, now)
+            ):
+                job = self._slot(
+                    plan,
+                    access.owner_id,
+                    "occasion",
+                    1,
+                    occasion_stamp,
+                    min(end, occasion_end),
+                    policy.grace_seconds,
+                    topic="occasions",
+                )
+                job.occasion_json = occasion.model_dump_json()
+                await self.jobs.create(job)
             previous = await self.reader.previous_topics(
                 access.channel_id, day
             )

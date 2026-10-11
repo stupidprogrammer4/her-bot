@@ -58,7 +58,9 @@ class PublicationRepository(MySQLRepository[PublicationJobModel]):
                 col(self.table.channel_id) == channel_id,
                 col(self.table.message_id) == message_id,
                 col(self.table.status) == "sent",
-                col(self.table.kind).in_(["text", "greeting", "edit"]),
+                col(self.table.kind).in_(
+                    ["text", "greeting", "edit", "occasion"]
+                ),
             )
             .order_by(col(self.table.id).desc())
             .limit(1)

@@ -5,7 +5,14 @@ from pydantic import AwareDatetime, BaseModel, Field
 
 Destination = Literal["channel", "discussion_group", "owner"]
 PublicationKind = Literal[
-    "music", "text", "greeting", "preview", "edit", "delete", "reply"
+    "music",
+    "text",
+    "greeting",
+    "preview",
+    "edit",
+    "delete",
+    "reply",
+    "occasion",
 ]
 
 
