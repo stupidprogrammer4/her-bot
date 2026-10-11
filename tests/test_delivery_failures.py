@@ -48,9 +48,10 @@ async def test_automatic_audio_deadline_reaches_gateway_and_sends(native):
     )
     await dispatch(job)
     audio = await native.services.received(
-        lambda request: request.get("caption") == "کپشن آمادهٔ آهنگ"
+        lambda request: request.get("audio") == "file-deadline"
     )
     assert audio["audio"] == "file-deadline"
+    assert audio["caption"] == "🕯️"
 
 
 async def test_permanent_failure_and_recovery_alert_owner_without_retry(

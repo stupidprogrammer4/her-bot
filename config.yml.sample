@@ -41,3 +41,4 @@ tasks:
   schedule_prefix: her:schedules
   consumer_group: her-workers
   result_prefix: her:results
+  result_ttl: 3600

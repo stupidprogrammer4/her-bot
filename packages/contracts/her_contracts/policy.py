@@ -57,6 +57,7 @@ class ModelPolicy(BaseModel):
     history_messages: int = Field(default=12, ge=2, le=40)
     history_chars: int = Field(default=8000, ge=500, le=20000)
     history_days: int = Field(default=7, ge=1, le=30)
+    task_history_seconds: int = Field(default=3600, ge=60, le=86400)
     context_limit: int = Field(default=30, ge=1, le=100)
     context_chars: int = Field(default=10000, ge=1000, le=30000)
     channel_days: int = Field(default=90, ge=1, le=365)

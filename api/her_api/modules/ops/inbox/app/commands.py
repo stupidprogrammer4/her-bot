@@ -6,6 +6,7 @@ from papilio.infra.db.transaction import transaction
 from her_api.modules.ops.inbox.domain.dtos import InboxChange
 from her_api.modules.ops.inbox.domain.models import InboxModel
 from her_api.modules.ops.inbox.infra.mysql import InboxRepository
+from her_api.modules.ops.inbox.infra.task_history import TaskHistoryStore
 from her_api.modules.ops.inbox.interfaces import IMessageHandler
 from her_api.modules.ops.settings.interfaces import ISettingsQueries
 from her_api.modules.persona.privacy.app.guard import IdentityGuard
@@ -21,8 +22,10 @@ class InboxCommands:
         guard: IdentityGuard,
         handler: IMessageHandler,
         clock: Clock,
+        history: TaskHistoryStore,
     ):
         self.clock = clock
+        self.history = history
         self.repo, self.settings, self.guard, self.handler = (
             repo,
             settings,
@@ -120,6 +123,10 @@ class InboxCommands:
 
     async def purge(self) -> None:
         settings = await self.settings.snapshot()
+        await self.history.prune(
+            self.clock.now()
+            - timedelta(seconds=settings.model.task_history_seconds)
+        )
         async with transaction():
             await self.repo.purge(
                 self.clock.now() - timedelta(days=settings.model.history_days)
