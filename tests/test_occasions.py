@@ -157,6 +157,19 @@ async def test_concurrent_plans_and_replay_create_one_dated_occasion(native):
     )
 
 
+@pytest.mark.parametrize(
+    "native",
+    [
+        WindowPolicy(
+            timezone="UTC",
+            start=time(0),
+            end=time(23, 59),
+            text_min=0,
+            text_max=0,
+        )
+    ],
+    indirect=True,
+)
 async def test_scheduler_prepares_and_worker_sends_one_occasion(native):
     today = datetime.now(UTC).date()
     entry = await create_test_day(native, today)

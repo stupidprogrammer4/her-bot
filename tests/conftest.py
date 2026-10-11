@@ -349,9 +349,13 @@ async def native(
                     await service.bootstrap(
                         "model", ModelPolicy(model="test-model")
                     )
-                    await service.bootstrap(
-                        "window", WindowPolicy(text_min=0, text_max=0)
+                    initial_window = (
+                        request.param
+                        if hasattr(request, "param")
+                        and isinstance(request.param, WindowPolicy)
+                        else WindowPolicy(text_min=0, text_max=0)
                     )
+                    await service.bootstrap("window", initial_window)
                     await service.bootstrap("persona", initial_persona())
                     await service.bootstrap(
                         "occasions", OccasionPolicy(enabled=False)
