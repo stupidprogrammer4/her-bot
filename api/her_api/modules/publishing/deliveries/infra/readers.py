@@ -1,7 +1,7 @@
 from datetime import date
 
 from papilio.infra.db.repositories.backends.mysql import MySQLReader
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import aliased
 from sqlmodel import col
 
@@ -42,10 +42,16 @@ class PublicationReader(MySQLReader):
         played = (
             select(
                 col(j.track_id).label("track_id"),
-                func.max(col(j.sent_at)).label("last_played"),
+                func.max(
+                    func.coalesce(
+                        col(j.sent_at),
+                        col(j.send_started_at),
+                        col(j.created_at),
+                    )
+                ).label("last_played"),
             )
             .where(
-                col(j.status) == "sent",
+                col(j.status).in_(["sent", "sending", "delivery_unknown"]),
                 col(j.kind) == "music",
                 col(j.channel_id) == channel_id,
             )
@@ -60,6 +66,22 @@ class PublicationReader(MySQLReader):
         return [
             TrackCandidate(track=t, last_played=stamp) for t, stamp in result
         ]
+
+    async def has_used_track(self, channel_id: int, track_id: int) -> bool:
+        job = PublicationJobTable
+        result = await self.uow.execute(
+            select(
+                exists().where(
+                    col(job.channel_id) == channel_id,
+                    col(job.track_id) == track_id,
+                    col(job.kind) == "music",
+                    col(job.status).in_(
+                        ["sent", "sending", "delivery_unknown"]
+                    ),
+                )
+            )
+        )
+        return bool(result.scalar_one())
 
     async def jobs(self, plan_id: int) -> list[PublicationJobTable]:
         j = PublicationJobTable

@@ -1,8 +1,9 @@
+import unicodedata
 from datetime import time
 from typing import Literal, Self
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from her_contracts.media import Mood
 
@@ -77,11 +78,27 @@ class PersonaPolicy(BaseModel):
     facts: list[PersonaFact] = Field(default_factory=list, max_length=50)
     topics: list[str] = Field(min_length=1, max_length=30)
     fallbacks: dict[str, list[str]] = Field(default_factory=dict)
+    music_emoji: str = Field(default="🕯️", min_length=1, max_length=16)
     music_fallback: str = "اینم برای امشب 🎧"
     music_fallbacks: dict[Mood, list[str]] = Field(default_factory=dict)
     greeting_fallback: str = "سلام بچه‌هاا :))) شمع زیبام 🎀🍓"
     chat_fallback: str = "الان جوابم گیر کرده، یه کم بعد دوباره بگو"
     owner_address: str = ""
+
+    @field_validator("music_emoji")
+    @classmethod
+    def one_emoji(cls, value: str) -> str:
+        parts = value.split("\u200d")
+        bases = [
+            [c for c in part if unicodedata.category(c) == "So"]
+            for part in parts
+        ]
+        if not all(len(base) == 1 for base in bases) or any(
+            unicodedata.category(c) not in {"So", "Sk", "Mn"} and c != "\u200d"
+            for c in value
+        ):
+            raise ValueError("Use one pictographic emoji without text")
+        return value
 
 
 class SettingsSnapshot(BaseModel):

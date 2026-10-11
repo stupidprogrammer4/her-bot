@@ -112,13 +112,13 @@ class PlanCommands:
                 chosen = self.sampler.tracks(
                     candidates,
                     policy.tracks,
-                    as_utc(plan.starts_at)
-                    - timedelta(days=policy.cooldown_windows),
                 )
-                if len(
+                if (
                     chosen
-                ) == policy.tracks and await self.plans.claim_music(plan.id):
-                    times = self.sampler.times(music_start, end, policy.tracks)
+                    and music_start < end
+                    and await self.plans.claim_music(plan.id)
+                ):
+                    times = self.sampler.times(music_start, end, len(chosen))
                     await self.jobs.create_many(
                         [
                             self._slot(
@@ -135,22 +135,6 @@ class PlanCommands:
                                 zip(times, chosen, strict=True)
                             )
                         ]
-                    )
-                elif len(
-                    chosen
-                ) < policy.tracks and await self.plans.claim_warning(plan.id):
-                    await self.jobs.create(
-                        PublicationJobModel(
-                            plan_id=plan.id,
-                            kind="reply",
-                            owner_id=access.owner_id,
-                            channel_id=access.owner_id,
-                            automatic=False,
-                            text="برای برنامهٔ موسیقی امشب حداقل سه آهنگ ف"
-                            "عال لازم دارم 🎧",
-                            scheduled_at=now,
-                            next_attempt_at=now,
-                        )
                     )
             existing = await self.reader.jobs(plan.id)
             active_ids = {c.track.id for c in candidates}
@@ -171,8 +155,6 @@ class PlanCommands:
             replacements = self.sampler.tracks(
                 candidates,
                 len(invalid),
-                as_utc(plan.starts_at)
-                - timedelta(days=policy.cooldown_windows),
                 exclude=excluded,
             )
             await self.jobs.replace_many(

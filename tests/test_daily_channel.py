@@ -112,11 +112,11 @@ async def preview_mood(native, mood: Mood, update_id: int):
             f"Missing {mood} preview; jobs={jobs!r}; "
             f"requests={native.services.telegram_requests!r}"
         )
-    assert sent["caption"] in initial_persona().music_fallbacks[mood]
+    assert sent["caption"] == initial_persona().music_emoji
     assert int(sent["chat_id"]) == OWNER
 
 
-async def test_each_music_mood_has_a_saved_caption_during_model_outage(native):
+async def test_music_moods_use_identity_emoji_without_a_model(native):
     native.services.model_status = 402
     moods: list[Mood] = [
         "calm",
@@ -139,14 +139,11 @@ async def test_each_music_mood_has_a_saved_caption_during_model_outage(native):
         "j.kind='preview' ORDER BY t.mood"
     )
     assert len(saved) == 6
-    assert all(
-        row["text"] in initial_persona().music_fallbacks[row["mood"]]
-        for row in saved
-    )
+    assert all(row["text"] == initial_persona().music_emoji for row in saved)
 
 
 @pytest.mark.parametrize("native", [False], indirect=True)
-async def test_configured_caption_can_repeat_when_outage_choices_are_exhausted(
+async def test_legacy_music_caption_configuration_is_ignored(
     native,
 ):
     native.services.model_status = 402
@@ -189,7 +186,11 @@ async def test_configured_caption_can_repeat_when_outage_choices_are_exhausted(
         "WHERE id IN (:first,:second) ORDER BY id",
         {"first": first, "second": second},
     )
-    assert rows == [{"text": caption, "status": "pending"}] * 2
+    assert (
+        rows
+        == [{"text": initial_persona().music_emoji, "status": "pending"}] * 2
+    )
+    assert not native.services.model_requests
     assert not any(
         request.get("method") == "sendAudio"
         for request in native.services.telegram_requests

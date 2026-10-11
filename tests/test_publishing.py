@@ -144,7 +144,7 @@ async def test_owner_group_greeting_works_with_member_chat_disabled(native):
     )
 
 
-async def test_archive_refreshes_file_id_and_preview_uses_model_fallback(
+async def test_archive_refreshes_file_id_and_preview_uses_identity_emoji(
     native,
 ):
     async with native.scope() as scope:
@@ -177,7 +177,8 @@ async def test_archive_refreshes_file_id_and_preview_uses_model_fallback(
         lambda r: r.get("method") == "sendAudio"
     )
     assert sent["audio"] == "refreshed-file"
-    assert sent["caption"] == "اینم برای امشب 🎧"
+    assert sent["caption"] == "🕯️"
+    assert not native.services.model_requests
     assert int(sent["chat_id"]) == OWNER
     assert "parse_mode" not in sent
 

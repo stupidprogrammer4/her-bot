@@ -17,7 +17,7 @@ from her_api.modules.persona.privacy.app.guard import IdentityGuard
 from her_api.modules.publishing.plans.app.sampling import WindowSampler
 from her_bot.app.addressing import Addressing
 from her_bot.app.updates import ImportBuffer
-from her_contracts.policy import WindowPolicy
+from her_contracts.policy import PersonaPolicy, WindowPolicy
 
 
 def guard() -> IdentityGuard:
@@ -161,3 +161,25 @@ def test_import_buffer_refuses_overflow_before_writing():
     with pytest.raises(ValueError):
         stream.write(b"b")
     assert stream.getbuffer().nbytes == 10 * 1024 * 1024
+
+
+@pytest.mark.parametrize("emoji", ["🕯️", "🎀", "👩‍🎤"])
+def test_music_identity_accepts_one_emoji(emoji):
+    assert (
+        PersonaPolicy(
+            system_prompt="Public test persona. " * 6,
+            topics=["daily"],
+            music_emoji=emoji,
+        ).music_emoji
+        == emoji
+    )
+
+
+@pytest.mark.parametrize("caption", ["Hi 🕯️", "🕯️🎀", "", "plain text"])
+def test_music_identity_rejects_prose_or_multiple_emoji(caption):
+    with pytest.raises(ValidationError):
+        PersonaPolicy(
+            system_prompt="Public test persona. " * 6,
+            topics=["daily"],
+            music_emoji=caption,
+        )

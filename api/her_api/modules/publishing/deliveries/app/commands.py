@@ -144,7 +144,11 @@ class PublicationCommands:
                 )
             return
         try:
-            text = self.guard.require_safe(job.text or "")
+            text = self.guard.require_safe(
+                settings.persona.music_emoji
+                if job.kind in {"music", "preview"}
+                else job.text or ""
+            )
         except (ValueError, RuntimeError, NotFoundException):
             async with transaction():
                 await self.jobs.change(
@@ -186,6 +190,25 @@ class PublicationCommands:
             return
         async with transaction():
             acquired = await self.gates.acquire(job.channel_id, job.id, now)
+        if acquired and job.kind == "music" and job.track_id is not None:
+            used = await self.reader.has_used_track(
+                job.channel_id, job.track_id
+            )
+            if used:
+                async with transaction():
+                    await self.jobs.change(
+                        job_id,
+                        JobChange(
+                            status="skipped",
+                            text=text,
+                            lease_expires_at=None,
+                            failure_reason="track_already_used",
+                        ),
+                        expected="preparing",
+                    )
+                    await self.gates.release(job.channel_id, job.id)
+                return
+        async with transaction():
             if acquired:
                 await self.jobs.change(
                     job_id, JobChange(text=text), expected="preparing"

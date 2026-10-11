@@ -3,7 +3,6 @@ from random import SystemRandom
 from zoneinfo import ZoneInfo
 
 from her_api.modules.library.tracks.domain.dtos import TrackCandidate
-from her_api.shared.dates import as_utc
 from her_contracts.policy import WindowPolicy
 
 
@@ -58,21 +57,15 @@ class WindowSampler:
         self,
         candidates: list[TrackCandidate],
         count: int,
-        cutoff: datetime,
         exclude: set[int] | None = None,
     ) -> list[int]:
         rows = [
-            row for row in candidates if row.track.id not in (exclude or set())
+            row
+            for row in candidates
+            if row.last_played is None
+            and row.track.id not in (exclude or set())
         ]
         self.rng.shuffle(rows)
-        rows.sort(
-            key=lambda c: (
-                c.last_played is not None and as_utc(c.last_played) >= cutoff,
-                as_utc(c.last_played).timestamp()
-                if c.last_played
-                else float("-inf"),
-            )
-        )
         return [r.track.id for r in rows[:count]]
 
     def topics(
