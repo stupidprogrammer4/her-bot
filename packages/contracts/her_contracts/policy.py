@@ -45,12 +45,11 @@ class AccessPolicy(BaseModel):
 
 
 class ModelPolicy(BaseModel):
-    model: str = Field(min_length=1, max_length=150)
+    model: str = Field(
+        default="qwen/qwen3.8-27b", min_length=1, max_length=150
+    )
     temperature: float = Field(default=0.7, ge=0, le=2)
-    reasoning_effort: (
-        Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"]
-        | None
-    ) = None
+    reasoning_effort: Literal["low", "medium", "high"] | None = None
     chat_tokens: int = Field(default=320, ge=50, le=2000)
     technical_tokens: int = Field(default=900, ge=50, le=4000)
     caption_tokens: int = Field(default=220, ge=50, le=500)

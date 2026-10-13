@@ -12,7 +12,7 @@ long polling and delivery.
 - `api/her_api/modules/library`: Telegram audio references and metadata.
 - `api/her_api/modules/publishing`: evening plans and delivery records.
 - `api/her_api/modules/content`: observed and explicitly imported channel context.
-- `api/her_api/modules/ai`: bounded OpenRouter generation and usage accounting.
+- `api/her_api/modules/ai`: bounded Groq generation and usage accounting.
 - `api/her_api/modules/conversations`: isolated history and authorized owner tools.
 - `bots/her_bot`: Telegram adapter, menus and internal delivery gateway.
 - `packages/contracts`: typed boundaries shared by both applications.
@@ -23,7 +23,7 @@ Requires Docker Compose. For development, use Python 3.13, MySQL 8.4 and Redis 8
 Framework sources and Python dependencies are pinned in the lock files.
 
 1. Copy `.env.example` to a private `.env` and restrict its permissions.
-2. Set the bot token, OpenRouter key, numeric owner/channel IDs, bootstrap model,
+2. Set the bot token, Groq key, numeric owner/channel IDs, bootstrap model,
    a random service key of at least 32 characters and independent MySQL passwords.
    Hexadecimal passwords avoid URL escaping in the Compose database URL.
 3. Supply SHA-256 fingerprints of protected identities in `HER_IDENTITY_HASHES`.
@@ -121,12 +121,11 @@ channel posts and tool-driven publication prompts. Each conversation is scoped
 by chat and user; retained exchanges default to seven days. Channel context
 defaults to ninety days, while delivery records retain their identities/status.
 
-OpenRouter requests require zero-data-retention routing, deny provider data
-collection and require supported parameters. Routing restrictions are never
-relaxed after an error. Call budgets, model choice and token limits are editable
-database policies. A provider or credit error produces a local safe fallback;
-music sending can continue without generated captions. Provider routing settings
-do not remove the need to protect the application's own database and backups.
+Groq uses account-level ZDR Data Controls; there is no request-level provider
+routing parameter. Call budgets, model choice and token limits remain editable
+database policies. A provider or quota error produces the existing local safe
+fallback; music sending can continue without generated captions. Protect the
+application database and backups independently of the provider's data controls.
 
 Channel context includes only received updates, valid owner-forwarded channel
 posts and confirmed text imports. It does not claim complete Telegram history or
@@ -150,7 +149,7 @@ For integration tests, provide `HER_TEST_DATABASE_URL` with an isolated database
 name beginning with `her_test`, plus an isolated `HER_TEST_REDIS_URL`. Fixtures
 reset that test schema and use unique native queue namespaces. MySQL, Redis,
 Alembic, HTTP API, scheduler, worker and aiogram execute on the tested path;
-Telegram and OpenRouter HTTP responses are controlled external boundaries.
+Telegram and Groq HTTP responses are controlled external boundaries.
 These tests do not prove live provider generation or production channel posting.
 
 Run scoped pytest workflows, Ruff check/format and standard Pyright for changed
@@ -186,3 +185,13 @@ Calendar definitions are editable through authenticated, paginated
 Gregorian, Persian and verified Iranian lunar dates, with UN, UNESCO, WHO and
 clearly identified informal source records. Iranian lunar coverage ends on
 March 20, 2027; unknown future lunar dates are reported rather than invented.
+
+Groq uses `qwen/qwen3.8-27b` with `GROQ_API_KEY` in the private `.env`.
+Free use depends on the account Free Plan and its rate limits; no paid fallback
+is configured. Enable ZDR in Groq Data Controls. Credit balance and aggregate cost
+are not part of completion response bodies; missing cost stays unknown.
+
+Existing database model policies require Alembic upgrade to
+`20261013_groq_model`; bootstrap preserves existing settings. The upgrade retains
+all other limits and advances the revision. Back up the original policy before
+upgrade; provider rollback requires restoring its prior values.

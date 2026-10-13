@@ -125,11 +125,7 @@ async def test_group_prompt_excludes_private_facts_and_history(
         and "PRIVATE_CONVERSATION_DETAIL" not in public
     )
     assert "tools" not in native.services.model_requests[-1]
-    assert native.services.model_requests[-1]["provider"] == {
-        "data_collection": "deny",
-        "zdr": True,
-        "require_parameters": True,
-    }
+    assert "provider" not in native.services.model_requests[-1]
     history = await native.rows(
         (
             "SELECT chat_id,user_id,user_text FROM "

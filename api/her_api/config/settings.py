@@ -13,7 +13,7 @@ class SecuritySettings(BaseModel):
 
 class ModelCredentials(BaseModel):
     api_key: SecretStr = SecretStr("")
-    endpoint: str = "https://openrouter.ai/api/v1/chat/completions"
+    endpoint: str = "https://api.groq.com/openai/v1/chat/completions"
 
 
 class TelegramTransport(BaseModel):
@@ -47,7 +47,7 @@ class HerSettings(Settings):
             tasks["url"] = url
         data["tasks"] = tasks
         ai = dict(data.get("ai", {}))
-        if key := os.getenv("OPENROUTER_API_KEY"):
+        if key := os.getenv("GROQ_API_KEY"):
             ai["api_key"] = key
         data["ai"] = ai
         return data

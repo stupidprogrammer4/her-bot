@@ -9,7 +9,7 @@ from her_contracts.generation import ModelMessage, ModelReply
 from her_contracts.policy import ModelPolicy
 
 
-class OpenRouterClient:
+class GroqClient:
     def __init__(self, client: httpx.AsyncClient, settings: HerSettings):
         self.client = client
         self.settings = settings.ai
@@ -29,14 +29,9 @@ class OpenRouterClient:
             "temperature": policy.temperature,
             "max_tokens": tokens,
             "stream": False,
-            "provider": {
-                "data_collection": "deny",
-                "zdr": True,
-                "require_parameters": True,
-            },
         }
         if policy.reasoning_effort is not None:
-            payload["reasoning"] = {"effort": policy.reasoning_effort}
+            payload["reasoning_effort"] = policy.reasoning_effort
         if tools:
             payload.update(tools=tools, parallel_tool_calls=False)
         try:

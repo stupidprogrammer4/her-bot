@@ -45,7 +45,7 @@ async def test_future_text_is_persisted_then_scheduler_sends_without_model(
         assert isinstance(model.value, ModelPolicy)
         await settings.write(
             "model",
-            model.value.model_copy(update={"reasoning_effort": "none"}),
+            model.value.model_copy(update={"reasoning_effort": "low"}),
             model.revision,
         )
     future = datetime.now(UTC).replace(microsecond=0) + timedelta(hours=1)
@@ -66,7 +66,7 @@ async def test_future_text_is_persisted_then_scheduler_sends_without_model(
         "FROM tbl_publication_jobs WHERE id=:id",
         {"id": job},
     )
-    assert native.services.model_requests[0]["reasoning"] == {"effort": "none"}
+    assert native.services.model_requests[0]["reasoning_effort"] == "low"
     assert stored[0]["status"] == "pending"
     assert stored[0]["text"] == caption
     assert stored[0]["scheduled_at"] == future.replace(

@@ -39,7 +39,10 @@ async def bootstrap() -> None:
             )
             await service.bootstrap("window", WindowPolicy(text_start=time(9)))
             await service.bootstrap(
-                "model", ModelPolicy(model=os.environ["HER_OPENROUTER_MODEL"])
+                "model",
+                ModelPolicy(
+                    model=os.getenv("HER_GROQ_MODEL", "qwen/qwen3.8-27b")
+                ),
             )
             await service.bootstrap("persona", initial_persona())
             await service.bootstrap("occasions", OccasionPolicy())

@@ -10,7 +10,7 @@ x-api: &api
     HER_REDIS_URL: redis://redis:6379/0
     HER_SERVICE_KEY: ${HER_SERVICE_KEY:?Set HER_SERVICE_KEY}
     HER_IDENTITY_HASHES: ${HER_IDENTITY_HASHES:?Set identity fingerprints}
-    OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY}
+    GROQ_API_KEY: ${GROQ_API_KEY:?Set GROQ_API_KEY}
   init: true
   security_opt: [no-new-privileges:true]
   cap_drop: [ALL]
@@ -54,7 +54,7 @@ services:
       HER_OWNER_TELEGRAM_ID: ${HER_OWNER_TELEGRAM_ID:?Set owner ID}
       HER_CHANNEL_ID: ${HER_CHANNEL_ID:?Set channel ID}
       HER_DISCUSSION_GROUP_ID: ${HER_DISCUSSION_GROUP_ID:-}
-      HER_OPENROUTER_MODEL: ${HER_OPENROUTER_MODEL:?Set bootstrap model}
+      HER_GROQ_MODEL: ${HER_GROQ_MODEL:?Set bootstrap model}
     command: [python, -m, her_api.apps.initialize]
     depends_on:
       mysql: {condition: service_healthy}

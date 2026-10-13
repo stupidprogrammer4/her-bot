@@ -252,7 +252,7 @@ async def native(
         "HER_DATABASE_URL": database,
         "HER_REDIS_URL": redis,
         "HER_SERVICE_KEY": key,
-        "OPENROUTER_API_KEY": "test-key",
+        "GROQ_API_KEY": "test-key",
         "HER_IDENTITY_HASHES": guard_hash,
         "HER_ENV_FILE": str(tmp_path / "absent.env"),
     }.items():

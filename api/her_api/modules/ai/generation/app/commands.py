@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from papilio.infra.db.transaction import transaction
 
 from her_api.modules.ai.generation.app.concurrency import ModelConcurrency
+from her_api.modules.ai.generation.app.prompts import mode_instructions
 from her_api.modules.ai.generation.domain.dtos import ModelCallChange
 from her_api.modules.ai.generation.domain.errors import ModelUnavailable
 from her_api.modules.ai.generation.domain.models import ModelCallModel
@@ -70,7 +71,13 @@ class GenerationCommands:
             ],
             "data": data.data,
         }
-        system = ANONYMITY_RULE + "\n" + settings.persona.system_prompt
+        system = "\n".join(
+            (
+                ANONYMITY_RULE,
+                settings.persona.system_prompt,
+                mode_instructions(data.mode),
+            )
+        )
         self.guard.require_safe(system)
         messages = [
             ModelMessage(role="system", content=system),

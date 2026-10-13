@@ -32,7 +32,7 @@ security:
   identity_hashes: []
 ai:
   api_key: ''
-  endpoint: https://openrouter.ai/api/v1/chat/completions
+  endpoint: https://api.groq.com/openai/v1/chat/completions
 telegram:
   gateway_url: http://bots:8080
 tasks:
